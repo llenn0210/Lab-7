@@ -3,8 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
@@ -17,28 +16,31 @@ class LoginController extends Controller
     // Handle login
     public function login(Request $request)
     {
-        // Validate input
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required|min:6'
         ]);
 
-        // Find user
-        $user = User::where('email', $request->email)->first();
+        $credentials = $request->only('email', 'password');
 
-        if ($user && Hash::check($request->password, $user->password)) {
-            // Save user to session
-            session(['user' => $user]);
+        if (Auth::attempt($credentials)) {
+            // prevent session fixation
+            $request->session()->regenerate();
             return redirect('/dashboard');
         }
 
-        return back()->withErrors(['email' => 'Invalid email or password']);
+        return back()->withErrors([
+            'email' => 'Invalid email or password',
+        ]);
     }
 
     // Handle logout
-    public function logout()
+    public function logout(Request $request)
     {
-        session()->forget('user');
+        Auth::logout(); // Laravel handles session cleanup
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect('/login')->with('success', 'You have logged out.');
     }
 }
